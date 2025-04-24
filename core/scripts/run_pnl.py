@@ -3,6 +3,9 @@ from core.analysis.preprocess import preprocess_data, train_test_split
 from core.analysis.data_interrogation import plot_autocorrelation
 from core.models.momentum import Momentum
 from core.models.ewma import EWMAMeanReversion
+from core.analysis.risk_adj import sharpe_ratio, calmar_ratio, max_drawdown
+import pandas as pd
+
 
 
 def plot_data(data):
@@ -30,6 +33,27 @@ def plot_data(data):
     ax[2].legend()
 
 
+def performance_indicators(strategy, train, test):
+
+    strategy.fit()
+
+    # train metrics
+    _, _, V_total, _ = strategy.run(train, train=True)
+    _sr_train, _cr_train, _mdd_train = sharpe_ratio(V_total), calmar_ratio(V_total), max_drawdown(V_total)
+
+    # test metrics
+    _, _, V_total, _ = strategy.run(test, train=False)
+    _sr_test, _cr_test, _mdd_test = sharpe_ratio(V_total), calmar_ratio(V_total), max_drawdown(V_total)
+
+    performance_table = pd.DataFrame({
+        "Sharpe Ratio": [_sr_train, _sr_test],
+        "Calmar Ratio": [_cr_train, _cr_test],
+        "MDD": [_mdd_train, _mdd_test],
+    })
+    performance_table.index = ["Train", "Test"]
+    return performance_table
+
+
 def momentum():
 
     # get data
@@ -41,13 +65,17 @@ def momentum():
     plot_autocorrelation(train)
 
     # fit momentum hyperparameters
-    momentum = Momentum(train=train, test=test)
-    _ = momentum.fit()
-    print(f"Momentum: short_window={momentum.short_window}, long_window={momentum.long_window}")
+    _momentum = Momentum(train=train, test=test)
+    _ = _momentum.fit()
+    print(f"Momentum: short_window={_momentum.short_window}, long_window={_momentum.long_window}")
 
     # plot position and pnl
-    momentum.plot_position()
-    momentum.plot_pnl()
+    _momentum.plot_position()
+    _momentum.plot_pnl()
+
+    # plot performance indicators
+    risk_adjusted_metrics = performance_indicators(_momentum, train, test)
+    print(risk_adjusted_metrics)
 
 
 def ewma():
@@ -68,6 +96,10 @@ def ewma():
     # plot position and pnl
     _ewma_mr.plot_position()
     _ewma_mr.plot_pnl()
+
+    # plot performance indicators
+    risk_adjusted_metrics = performance_indicators(_ewma_mr, train, test)
+    print(risk_adjusted_metrics)
 
 
 if __name__ == "__main__":
